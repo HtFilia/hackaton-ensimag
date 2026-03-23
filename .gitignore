@@ -1,0 +1,59 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environment
+venv/
+env/
+.env
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# Distribution / Packaging
+build/
+dist/
+*.egg-info/
+
+# IDEs
+.vscode/
+.idea/
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Custom agent configuration
+AGENTS.md
+
+# Admin-only frontend (organizer dashboard + generated JSON)
+frontend/src/leaderboard/
+frontend/admin.html
+frontend/public/scores.json
+frontend/public/student-results.json
+
+# Admin-only backend (private scoring + validation)
+src/scoring/
+src/validation/csv_parser.py
+tests/fixtures_private/
+
+# Admin-only migration tooling
+scripts/migrate_csv_to_yaml.py
+
+# Local runtime files (machine-local, written by make)
+.team
+.watch.pid
+.frontend.pid
+
+# Admin notes and tooling
+TODO.md
+Makefile.admin
+
+# Admin scoring results
+results/
+
+*.pdf
