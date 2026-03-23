@@ -1,0 +1,34 @@
+name: Validation publique
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  validate:
+    name: Tests publics — Paliers 1 à 6
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Configurer Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Installer les dépendances
+        run: pip install -r requirements.txt
+
+      - name: Lancer les tests publics
+        run: python3 -m pytest tests/levels/ -v --tb=short
+
+      - name: Résumé des résultats
+        if: always()
+        run: |
+          echo "### Résultats des tests publics" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Les tests privés (notation officielle) sont exécutés sur la machine des organisateurs." >> $GITHUB_STEP_SUMMARY

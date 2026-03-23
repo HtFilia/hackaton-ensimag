@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# Hook git pre-commit : lance les tests publics de l'équipe avant chaque commit.
+# Installez-le avec : make register
+
+echo ""
+echo "  ⚡ Flash Trading — vérification avant commit..."
+echo ""
+
+if [ ! -f ".team" ] || [ -z "$(cat .team)" ]; then
+    echo "  ✗ Équipe non définie. Lancez 'make register' avant de committer."
+    echo ""
+    exit 1
+fi
+
+TEAM=$(cat .team)
+echo "  Équipe : $TEAM"
+echo ""
+HACKATHON_TEAM="$TEAM" python3 -m pytest tests/levels/ -q --tb=short 2>&1
+
+EXIT_CODE=$?
+
+if [ $EXIT_CODE -ne 0 ]; then
+    echo ""
+    echo "  ✗ Des tests échouent. Commit annulé."
+    echo "    Corrigez les erreurs et relancez git commit."
+    echo ""
+    exit 1
+fi
+
+echo ""
+echo "  ✓ Tous les tests passent."
+echo ""
+exit 0

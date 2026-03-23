@@ -1,0 +1,69 @@
+books:
+  AAPL:
+    bids: []
+    asks: []
+orders:
+- id: '1'
+  side: buy
+  price: 255.0
+  quantity: 10
+  asset: AAPL
+- id: '2'
+  side: sell
+  price: 256.0
+  quantity: 8
+  asset: AAPL
+- id: '3'
+  side: buy
+  price: 255.5
+  quantity: 5
+  asset: AAPL
+  order_type: loc
+- id: '4'
+  side: sell
+  price: 255.5
+  quantity: 3
+  asset: AAPL
+  order_type: loc
+- id: '5'
+  side: buy
+  price: 0
+  quantity: 4
+  asset: AAPL
+  order_type: moc
+- id: c1
+  side: buy
+  price: 0
+  quantity: 0
+  asset: AAPL
+  action: CLOSE
+- id: '6'
+  side: buy
+  price: 254.0
+  quantity: 2
+  asset: AAPL
+expected_final:
+  AAPL:
+    bids:
+    - id: '1'
+      side: buy
+      price: 255.0
+      quantity: 10
+      asset: AAPL
+      order_type: limit
+      min_quantity: null
+    - id: '6'
+      side: buy
+      price: 254.0
+      quantity: 2
+      asset: AAPL
+      order_type: limit
+      min_quantity: null
+    asks:
+    - id: '2'
+      side: sell
+      price: 256.0
+      quantity: 8
+      asset: AAPL
+      order_type: limit
+      min_quantity: null
