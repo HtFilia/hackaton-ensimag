@@ -51,6 +51,7 @@ scripts/migrate_csv_to_yaml.py
 .team
 .watch.pid
 .frontend.pid
+.admin-dashboard.pid
 
 # Admin notes and tooling
 TODO.md
