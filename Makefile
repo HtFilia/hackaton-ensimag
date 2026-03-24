@@ -4,6 +4,7 @@
 
 # Auto-detect team from local .team file (written by make register)
 TEAM ?= $(shell cat .team 2>/dev/null)
+PYTHON := venv/bin/python3
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  AIDE
@@ -40,13 +41,13 @@ test: ## Lancer les tests publics et démarrer le dashboard en arrière-plan
 	fi
 	@# Lancer les tests
 	@if [ -n "$(LEVEL)" ]; then \
-		python3 -m pytest tests/levels/test_level$(LEVEL)_validation.py -v; \
+		$(PYTHON) -m pytest tests/levels/test_level$(LEVEL)_validation.py -v; \
 	else \
-		python3 -m pytest tests/levels/ -v; \
+		$(PYTHON) -m pytest tests/levels/ -v; \
 	fi
 	@# Démarrer la mise à jour automatique du dashboard en arrière-plan
 	@if [ -n "$(TEAM)" ]; then \
-		(while true; do python3 -m src.student.runner --team $(TEAM) >/dev/null 2>&1; sleep 5; done) & \
+		(while true; do $(PYTHON) -m src.student.runner --team $(TEAM) >/dev/null 2>&1; sleep 5; done) & \
 		echo $$! > .watch.pid; \
 		printf "\n  \033[36m▸\033[0m Dashboard mis à jour toutes les 5s en arrière-plan (make clean pour arrêter)\n\n"; \
 	fi
@@ -64,7 +65,7 @@ web: ## Calculer les résultats et ouvrir le dashboard étudiant
 		pkill -P $$(cat .frontend.pid) 2>/dev/null || true; \
 		rm -f .frontend.pid; \
 	fi
-	python3 -m src.student.runner --team $(TEAM)
+	$(PYTHON) -m src.student.runner --team $(TEAM)
 	@(cd frontend && npm run dev -- --open /) & echo $$! > .frontend.pid
 	@printf "  \033[36m▸\033[0m Dashboard lancé sur http://localhost:5173 (make clean pour arrêter)\n"
 

@@ -16,7 +16,8 @@ TEAM=$(cat .team)
 echo "  Équipe : $TEAM"
 echo ""
 
-TEST_OUTPUT=$(HACKATHON_TEAM="$TEAM" python3 -m pytest tests/levels/ -q --tb=line 2>&1)
+PYTHON=$([ -f venv/bin/python3 ] && echo "venv/bin/python3" || echo "python3")
+TEST_OUTPUT=$(HACKATHON_TEAM="$TEAM" "$PYTHON" -m pytest tests/levels/ -q --tb=line 2>&1)
 EXIT_CODE=$?
 
 echo "$TEST_OUTPUT"
