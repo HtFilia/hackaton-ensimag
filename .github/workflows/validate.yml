@@ -27,8 +27,10 @@ jobs:
           # Sur une branche d'équipe, filtrer sur cette équipe uniquement
           HACKATHON_TEAM: ${{ github.ref_name != 'master' && github.ref_name || '' }}
         run: |
+          set +e
           OUTPUT=$(python3 -m pytest tests/levels/ -v --tb=line 2>&1)
           EXIT=$?
+          set -e
           echo "$OUTPUT"
 
           # Exit 5 = aucun test collecté (équipe fraîche ou branche master sans équipe active)
