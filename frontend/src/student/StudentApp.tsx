@@ -149,7 +149,7 @@ export function StudentApp() {
             lineHeight: 1.6,
           }}
         >
-          <strong>⚠ Aucun résultat trouvé.</strong> Lancez d'abord dans un terminal :
+          <strong>⚠ Aucun résultat trouvé.</strong> Ce dashboard est lancé par :
           <br />
           <code
             style={{
@@ -163,11 +163,11 @@ export function StudentApp() {
               fontSize: 13,
             }}
           >
-            make test
+            make web
           </code>
           <br />
           <span style={{ color: "#888", fontSize: 12 }}>
-            Le dashboard se met ensuite à jour automatiquement toutes les 3 secondes.
+            Les résultats se mettent à jour automatiquement toutes les 5 secondes.
           </span>
         </div>
       )}
@@ -206,8 +206,9 @@ export function StudentApp() {
         }}
       >
         <code style={{ color: "#444" }}>make test</code>
-        {" — "}
-        lance les tests et met à jour le dashboard automatiquement toutes les 5s
+        {" — résultats dans le terminal  ·  "}
+        <code style={{ color: "#444" }}>make web</code>
+        {" — dashboard live avec mise à jour toutes les 5s"}
       </div>
     </div>
   );
