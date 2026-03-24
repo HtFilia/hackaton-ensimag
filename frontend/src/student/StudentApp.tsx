@@ -295,14 +295,15 @@ function QuickHelp() {
           </InfoBlock>
           <InfoBlock title="Commandes utiles">
             {[
-              "make register   → créer son équipe (une seule fois)",
-              "make test       → tests + mise à jour dashboard (5s)",
-              "make test LEVEL=3 → tester un seul palier",
-              "make web        → ouvrir ce dashboard",
-              "make clean      → arrêter les processus en arrière-plan",
+              "make register        → choisir son équipe (une seule fois)",
+              "make test            → tests + dashboard auto (5s)",
+              "make test LEVEL=3    → tester un seul palier",
+              "make web             → ouvrir ce dashboard",
+              "make clean           → arrêter les processus",
               "",
-              "Le dashboard se rafraîchit automatiquement toutes les 3s",
-              "dès que les résultats JSON changent sur disque.",
+              "git push origin <équipe> → soumettre au classement",
+              "",
+              "Le dashboard se rafraîchit automatiquement toutes les 3s.",
             ]}
           </InfoBlock>
         </div>
