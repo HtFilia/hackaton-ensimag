@@ -6,7 +6,7 @@ Bienvenue ! Votre objectif est de construire un moteur de carnet d'ordres perfor
 
 ### Prérequis
 - Python 3.11+
-- Node.js (pour le dashboard)
+- Node.js 20+ (pour le dashboard — optionnel si vous n'utilisez pas `make web`)
 
 ### Enregistrement
 

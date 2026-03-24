@@ -43,6 +43,12 @@ if ! command -v python3 &>/dev/null; then
     exit 1
 fi
 PYTHON_VERSION=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
+PYTHON_OK=$(python3 -c "import sys; print(1 if sys.version_info >= (3, 11) else 0)")
+if [ "$PYTHON_OK" != "1" ]; then
+    error "Python 3.11+ requis (détecté : $PYTHON_VERSION)."
+    error "Mettez à jour Python et relancez make register."
+    exit 1
+fi
 success "Python $PYTHON_VERSION détecté"
 
 # ── 2. Virtual environment + dependencies ─────────────────────────────────────

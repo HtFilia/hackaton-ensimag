@@ -1,9 +1,4 @@
 # Registered teams for the hackathon.
 # Each entry: team identifier and members.
+# Teams are added by the admin via: make -f Makefile.admin scaffold TEAM=nom
 teams:
-  - id: alpha_team
-    members: []
-  - id: beta_team
-    members: []
-  - id: blabla
-    members: []

@@ -56,6 +56,7 @@ scripts/fetch-submissions.sh
 
 # Admin notes and tooling
 TODO.md
+RUNBOOK.md
 Makefile.admin
 
 # Admin scoring results
