@@ -15,11 +15,13 @@ fi
 TEAM=$(cat .team)
 echo "  Équipe : $TEAM"
 echo ""
-HACKATHON_TEAM="$TEAM" python3 -m pytest tests/levels/ -q --tb=short 2>&1
 
+TEST_OUTPUT=$(HACKATHON_TEAM="$TEAM" python3 -m pytest tests/levels/ -q --tb=line 2>&1)
 EXIT_CODE=$?
 
-# Exit code 5 = aucun test collecté (équipe sans fixtures encore) → OK
+echo "$TEST_OUTPUT"
+
+# Aucun test collecté (équipe fraîchement créée, pas encore dans une CI)
 if [ $EXIT_CODE -eq 5 ]; then
     echo ""
     echo "  ✓ Aucun test à vérifier pour l'instant."
@@ -27,24 +29,36 @@ if [ $EXIT_CODE -eq 5 ]; then
     exit 0
 fi
 
-if [ $EXIT_CODE -ne 0 ]; then
+# Tous les tests passent
+if [ $EXIT_CODE -eq 0 ]; then
     echo ""
-    echo "  ⚠ Des tests échouent."
-    printf "    Voulez-vous quand même committer ? [y/N] "
-    read -r REPLY </dev/tty
+    echo "  ✓ Tous les tests passent."
     echo ""
-    if [[ "$REPLY" =~ ^[Yy]$ ]]; then
-        echo "  → Commit forcé malgré les tests en échec."
-        echo ""
-        exit 0
-    else
-        echo "  → Commit annulé. Corrigez les erreurs et relancez git commit."
-        echo ""
-        exit 1
-    fi
+    exit 0
 fi
 
+# Des tests échouent — distinguer NotImplementedError des vraies erreurs
+REAL_FAILURES=$(echo "$TEST_OUTPUT" | grep "^FAILED" | grep -v "NotImplementedError")
+
+if [ -z "$REAL_FAILURES" ]; then
+    echo ""
+    echo "  ✓ Paliers non encore implémentés — commit autorisé."
+    echo ""
+    exit 0
+fi
+
+# Vraies erreurs : demander confirmation
 echo ""
-echo "  ✓ Tous les tests passent."
+echo "  ⚠ Des tests échouent (hors paliers non implémentés)."
+printf "    Voulez-vous quand même committer ? [y/N] "
+read -r REPLY </dev/tty
 echo ""
-exit 0
+if [[ "$REPLY" =~ ^[Yy]$ ]]; then
+    echo "  → Commit effectué malgré les échecs."
+    echo ""
+    exit 0
+else
+    echo "  → Commit annulé. Corrigez les erreurs et relancez git commit."
+    echo ""
+    exit 1
+fi
