@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import importlib
 import platform
 import signal
@@ -29,8 +30,14 @@ def load_team_module(team: str, level: str):
         raise ImportError(f"Missing module for team '{team}' level '{level}'") from exc
 
 
+@functools.lru_cache(maxsize=None)
+def _load_yaml(path: Path) -> dict:
+    """Load and parse a YAML fixture file, cached across calls (read-only data)."""
+    return yaml.safe_load(path.read_text())
+
+
 def parse_fixture(path: Path) -> Tuple[Union[OrderBook, MultiBook], List[Order], dict]:
-    data = yaml.safe_load(path.read_text())
+    data = _load_yaml(path)  # cached — file is only read once per fixture
     if "books" in data:
         multibook = MultiBook()
         for asset, book_data in data["books"].items():

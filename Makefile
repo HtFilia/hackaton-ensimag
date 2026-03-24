@@ -33,39 +33,37 @@ register: ## Enregistrement interactif : équipe, dépendances, template, hooks
 	@bash scripts/register.sh
 
 test: ## Lancer les tests publics et démarrer le dashboard en arrière-plan
+	@if [ ! -f venv/bin/python3 ]; then printf "\n  Lancez 'make register' d'abord.\n\n"; exit 1; fi
+	@if [ -z "$(TEAM)" ]; then printf "\n  Équipe non définie. Lancez 'make register'.\n\n"; exit 1; fi
 	@# Redémarrer le processus de mise à jour du dashboard si déjà actif
 	@if [ -f .watch.pid ]; then \
 		kill $$(cat .watch.pid) 2>/dev/null || true; \
 		pkill -P $$(cat .watch.pid) 2>/dev/null || true; \
 		rm -f .watch.pid; \
 	fi
-	@# Lancer les tests
+	@# Lancer les tests puis démarrer le dashboard (quoi qu'il arrive)
 	@if [ -n "$(LEVEL)" ]; then \
 		$(PYTHON) -m pytest tests/levels/test_level$(LEVEL)_validation.py -v; \
 	else \
 		$(PYTHON) -m pytest tests/levels/ -v; \
-	fi
-	@# Démarrer la mise à jour automatique du dashboard en arrière-plan
-	@if [ -n "$(TEAM)" ]; then \
-		(while true; do $(PYTHON) -m src.student.runner --team $(TEAM) >/dev/null 2>&1; sleep 5; done) & \
-		echo $$! > .watch.pid; \
-		printf "\n  \033[36m▸\033[0m Dashboard mis à jour toutes les 5s en arrière-plan (make clean pour arrêter)\n\n"; \
-	fi
+	fi; \
+	EXIT=$$?; \
+	(while true; do $(PYTHON) -m src.student.runner --team $(TEAM) >/dev/null 2>&1; sleep 5; done) & \
+	echo $$! > .watch.pid; \
+	printf "\n  \033[36m▸\033[0m Dashboard mis à jour toutes les 5s en arrière-plan (make clean pour arrêter)\n\n"; \
+	exit $$EXIT
 
 web: ## Calculer les résultats et ouvrir le dashboard étudiant
-	@if [ -z "$(TEAM)" ]; then \
-		echo ""; \
-		echo "  Équipe non définie. Lancez 'make register' ou passez TEAM=nom."; \
-		echo ""; \
-		exit 1; \
-	fi
+	@if [ ! -f venv/bin/python3 ]; then printf "\n  Lancez 'make register' d'abord.\n\n"; exit 1; fi
+	@if [ -z "$(TEAM)" ]; then printf "\n  Équipe non définie. Lancez 'make register'.\n\n"; exit 1; fi
+	@if [ ! -d "frontend/node_modules" ]; then printf "\n  Modules Node manquants. Relancez 'make register'.\n\n"; exit 1; fi
 	@# Arrêter le serveur frontend si déjà actif
 	@if [ -f .frontend.pid ]; then \
 		kill $$(cat .frontend.pid) 2>/dev/null || true; \
 		pkill -P $$(cat .frontend.pid) 2>/dev/null || true; \
 		rm -f .frontend.pid; \
 	fi
-	$(PYTHON) -m src.student.runner --team $(TEAM)
+	@$(PYTHON) -m src.student.runner --team $(TEAM)
 	@(cd frontend && npm run dev -- --open /) & echo $$! > .frontend.pid
 	@printf "  \033[36m▸\033[0m Dashboard lancé sur http://localhost:5173 (make clean pour arrêter)\n"
 

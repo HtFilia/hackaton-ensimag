@@ -37,7 +37,7 @@ echo "  └───────────────────────
 echo ""
 
 # ── 1. Python check ───────────────────────────────────────────────────────────
-header "1/4 — Vérification de Python"
+header "1/5 — Vérification de Python"
 if ! command -v python3 &>/dev/null; then
     error "python3 est introuvable. Installez Python 3.11+ et relancez."
     exit 1
@@ -46,7 +46,7 @@ PYTHON_VERSION=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.v
 success "Python $PYTHON_VERSION détecté"
 
 # ── 2. Virtual environment + dependencies ─────────────────────────────────────
-header "2/4 — Environnement Python"
+header "2/5 — Environnement Python"
 if [ ! -d "venv" ]; then
     info "Création du virtualenv..."
     python3 -m venv venv
@@ -61,7 +61,21 @@ pip install --quiet -r requirements.txt
 success "Dépendances installées"
 
 # ── 3. Sélection de l'équipe ──────────────────────────────────────────────────
-header "3/4 — Identification de l'équipe"
+header "3/5 — Dépendances Node.js (dashboard)"
+if command -v npm &>/dev/null; then
+    if [ ! -d "frontend/node_modules" ]; then
+        info "Installation des modules Node..."
+        (cd frontend && npm install --silent)
+        success "Modules Node installés"
+    else
+        success "Modules Node déjà présents"
+    fi
+else
+    warn "npm introuvable — 'make web' ne fonctionnera pas (Node.js requis)"
+fi
+
+# ── 4. Sélection de l'équipe ──────────────────────────────────────────────────
+header "4/5 — Identification de l'équipe"
 
 # Fetch remote branches so we can checkout team branches
 if git remote get-url origin &>/dev/null; then
@@ -99,7 +113,7 @@ fi
 success "Équipe sélectionnée : $TEAM_ID"
 
 # ── 4. Basculement sur la branche de l'équipe ─────────────────────────────────
-header "4/4 — Configuration"
+header "5/5 — Configuration"
 
 if [ -d ".git" ]; then
     CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
