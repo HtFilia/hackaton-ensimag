@@ -1,7 +1,3 @@
 # Registered teams for the hackathon.
 # Each entry: team identifier and members.
 teams:
-  - id: alpha_team
-    members: []
-  - id: beta_team
-    members: []
