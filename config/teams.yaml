@@ -3,3 +3,5 @@
 teams:
   - id: alpha_team
     members: []
+  - id: beta_team
+    members: []
