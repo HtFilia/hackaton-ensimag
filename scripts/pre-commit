@@ -19,12 +19,29 @@ HACKATHON_TEAM="$TEAM" python3 -m pytest tests/levels/ -q --tb=short 2>&1
 
 EXIT_CODE=$?
 
+# Exit code 5 = aucun test collecté (équipe sans fixtures encore) → OK
+if [ $EXIT_CODE -eq 5 ]; then
+    echo ""
+    echo "  ✓ Aucun test à vérifier pour l'instant."
+    echo ""
+    exit 0
+fi
+
 if [ $EXIT_CODE -ne 0 ]; then
     echo ""
-    echo "  ✗ Des tests échouent. Commit annulé."
-    echo "    Corrigez les erreurs et relancez git commit."
+    echo "  ⚠ Des tests échouent."
+    printf "    Voulez-vous quand même committer ? [y/N] "
+    read -r REPLY </dev/tty
     echo ""
-    exit 1
+    if [[ "$REPLY" =~ ^[Yy]$ ]]; then
+        echo "  → Commit forcé malgré les tests en échec."
+        echo ""
+        exit 0
+    else
+        echo "  → Commit annulé. Corrigez les erreurs et relancez git commit."
+        echo ""
+        exit 1
+    fi
 fi
 
 echo ""
