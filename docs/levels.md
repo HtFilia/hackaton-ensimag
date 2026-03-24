@@ -53,7 +53,7 @@ Les ordres sont routés par `order.asset` vers des carnets indépendants par act
   L'ordre modifié peut croiser immédiatement le carnet si le nouveau prix le permet.
   Seuls le prix et la quantité changent ; le côté et le type d'ordre sont préservés.
 
-Note : pour CANCEL/AMEND, `order.id` désigne l'ordre cible (le `ref_id` dans le CSV).
+Note : pour CANCEL/AMEND, `order.id` désigne l'ordre cible dans le carnet.
 
 ### Champs concernés
 `order.action` — `"NEW"`, `"CANCEL"` ou `"AMEND"`
