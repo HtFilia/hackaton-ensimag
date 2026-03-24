@@ -69,7 +69,10 @@ if git remote get-url origin &>/dev/null; then
     git fetch origin --quiet 2>/dev/null || warn "Impossible de contacter le serveur git"
 fi
 
-mapfile -t AVAILABLE_TEAMS < <(get_registered_teams)
+AVAILABLE_TEAMS=()
+while IFS= read -r line; do
+    AVAILABLE_TEAMS+=("$line")
+done < <(get_registered_teams)
 
 if [ ${#AVAILABLE_TEAMS[@]} -eq 0 ]; then
     error "Aucune équipe disponible dans config/teams.yaml."
