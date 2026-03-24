@@ -11,7 +11,7 @@ PRIVATE_FIXTURES = sorted(Path("tests/fixtures_private/level2").glob("*.yaml"))
 def get_teams():
     with open("config/teams.yaml") as f:
         config = yaml.safe_load(f)
-    return [team["id"] for team in config["teams"]]
+    return [team["id"] for team in (config.get("teams") or [])]
 
 
 @pytest.mark.parametrize("team", get_teams())
