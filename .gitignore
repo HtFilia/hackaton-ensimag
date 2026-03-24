@@ -46,6 +46,7 @@ tests/fixtures_private/
 
 # Admin-only migration tooling
 scripts/migrate_csv_to_yaml.py
+scripts/fetch-submissions.sh
 
 # Local runtime files (machine-local, written by make)
 .team

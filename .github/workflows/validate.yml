@@ -3,7 +3,6 @@ name: Validation publique
 on:
   push:
     branches: ["**"]
-  pull_request:
 
 jobs:
   validate:
@@ -24,11 +23,22 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Lancer les tests publics
-        run: python3 -m pytest tests/levels/ -v --tb=short
+        env:
+          # Sur une branche d'équipe, filtrer sur cette équipe uniquement
+          HACKATHON_TEAM: ${{ github.ref_name != 'master' && github.ref_name || '' }}
+        run: |
+          python3 -m pytest tests/levels/ -v --tb=short
+          EXIT=$?
+          # Exit 5 = aucun test collecté (équipe fraîche ou branche master sans équipe active)
+          [ $EXIT -eq 0 ] || [ $EXIT -eq 5 ]
 
       - name: Résumé des résultats
         if: always()
         run: |
           echo "### Résultats des tests publics" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ github.ref_name }}" != "master" ]; then
+            echo "Équipe testée : \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Les tests privés (notation officielle) sont exécutés sur la machine des organisateurs." >> $GITHUB_STEP_SUMMARY

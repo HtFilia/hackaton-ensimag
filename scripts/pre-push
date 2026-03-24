@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# Hook git pre-push : empêche de pousser sur la mauvaise branche
+# ou de modifier les fichiers d'une autre équipe.
+# Installé automatiquement par : make register
+
+TEAM_FILE=".team"
+
+if [ ! -f "$TEAM_FILE" ] || [ -z "$(cat "$TEAM_FILE")" ]; then
+    echo ""
+    echo "  ✗ .team introuvable. Lancez 'make register' avant de pousser."
+    echo ""
+    exit 1
+fi
+
+TEAM=$(cat "$TEAM_FILE")
+REMOTE="$1"
+
+# Lire les refs poussées depuis stdin
+while read -r local_ref local_sha remote_ref remote_sha; do
+    # Extraire le nom de branche cible
+    REMOTE_BRANCH="${remote_ref#refs/heads/}"
+
+    # Vérifier que l'on pousse sur sa propre branche
+    if [ "$REMOTE_BRANCH" != "$TEAM" ]; then
+        echo ""
+        echo "  ✗ Push refusé : tentative de push sur '$REMOTE_BRANCH'."
+        echo "    Votre branche est '$TEAM'."
+        echo "    Utilisez : git push origin $TEAM"
+        echo ""
+        exit 1
+    fi
+
+    # Vérifier que seuls les fichiers de submissions/<team>/ sont modifiés
+    if git show-ref --verify --quiet "refs/remotes/$REMOTE/$TEAM"; then
+        BASE="$REMOTE/$TEAM"
+    else
+        BASE="origin/master"
+    fi
+
+    CHANGED=$(git diff --name-only "$BASE" "$local_sha" 2>/dev/null || true)
+    BAD_FILES=$(echo "$CHANGED" | grep -v "^submissions/$TEAM/" | grep -v "^$" || true)
+
+    if [ -n "$BAD_FILES" ]; then
+        echo ""
+        echo "  ✗ Push refusé : des fichiers hors de submissions/$TEAM/ ont été modifiés :"
+        echo "$BAD_FILES" | head -10 | sed 's/^/      /'
+        echo ""
+        echo "  Seul le dossier submissions/$TEAM/ vous appartient."
+        echo ""
+        exit 1
+    fi
+done
+
+exit 0

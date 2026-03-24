@@ -1,9 +1,3 @@
 # Registered teams for the hackathon.
 # Each entry: team identifier and members.
 teams:
-  - id: new_example
-    members:
-      - "Lucas LL."
-  - id: new_example_2
-    members:
-      - "Lucas LLL."

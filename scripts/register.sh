@@ -18,50 +18,14 @@ warn()    { printf "  ${YELLOW}⚠${RESET}  %s\n" "$*"; }
 error()   { printf "  ${RED}✗${RESET} %s\n" "$*" >&2; }
 header()  { printf "\n  ${BOLD}%s${RESET}\n\n" "$*"; }
 
-# ── Rollback state ────────────────────────────────────────────────────────────
-CREATED_SUBMISSION=""   # path created by this run, removed on error
-YAML_BACKUP=""          # backup of teams.yaml, restored on error
-
-cleanup() {
-    local exit_code=$?
-    if [ $exit_code -ne 0 ]; then
-        echo ""
-        error "Une erreur est survenue. Annulation des modifications..."
-        if [ -n "$CREATED_SUBMISSION" ] && [ -d "$CREATED_SUBMISSION" ]; then
-            rm -rf "$CREATED_SUBMISSION"
-            warn "submissions/ nettoyé"
-        fi
-        if [ -n "$YAML_BACKUP" ] && [ -f "$YAML_BACKUP" ]; then
-            cp "$YAML_BACKUP" config/teams.yaml
-            warn "config/teams.yaml restauré"
-        fi
-        echo ""
-    fi
-    [ -n "$YAML_BACKUP" ] && rm -f "$YAML_BACKUP"
-}
-trap cleanup EXIT
-
-# ── Helper: check if team id is in teams.yaml ─────────────────────────────────
-team_in_yaml() {
-    python3 - "$1" <<'EOF'
-import yaml, sys
-with open("config/teams.yaml") as f:
-    cfg = yaml.safe_load(f)
-ids = [t["id"] for t in (cfg.get("teams") or [])]
-sys.exit(0 if sys.argv[1] in ids else 1)
-EOF
-}
-
-# ── Helper: list registered teams (source of truth = teams.yaml) ──────────────
+# ── Helper: list registered teams from teams.yaml ─────────────────────────────
 get_registered_teams() {
     python3 - <<'EOF'
 import yaml
 with open("config/teams.yaml") as f:
     cfg = yaml.safe_load(f)
 for t in (cfg.get("teams") or []):
-    tid = t["id"]
-    if tid not in ("example_team",):
-        print(tid)
+    print(t["id"])
 EOF
 }
 
@@ -96,113 +60,79 @@ info "Installation des dépendances..."
 pip install --quiet -r requirements.txt
 success "Dépendances installées"
 
-# ── 3. Team identification ────────────────────────────────────────────────────
+# ── 3. Sélection de l'équipe ──────────────────────────────────────────────────
 header "3/4 — Identification de l'équipe"
 
-mapfile -t EXISTING_TEAMS < <(get_registered_teams)
-
-TEAM_ID=""
-IS_NEW=false
-
-if [ ${#EXISTING_TEAMS[@]} -gt 0 ]; then
-    echo "  Des équipes sont déjà enregistrées dans ce dépôt :"
-    echo ""
-    for i in "${!EXISTING_TEAMS[@]}"; do
-        printf "    \033[36m[%d]\033[0m %s\n" "$((i+1))" "${EXISTING_TEAMS[$i]}"
-    done
-    printf "    \033[36m[N]\033[0m Créer une nouvelle équipe\n"
-    echo ""
-    printf "  Votre choix : "
-    read -r CHOICE </dev/tty
-
-    if [[ "$CHOICE" =~ ^[0-9]+$ ]] && [ "$CHOICE" -ge 1 ] && [ "$CHOICE" -le "${#EXISTING_TEAMS[@]}" ]; then
-        TEAM_ID="${EXISTING_TEAMS[$((CHOICE-1))]}"
-    elif [[ "$CHOICE" =~ ^[Nn]$ ]]; then
-        IS_NEW=true
-    else
-        error "Choix invalide. Relancez make register."
-        exit 1
-    fi
-else
-    IS_NEW=true
+# Fetch remote branches so we can checkout team branches
+if git remote get-url origin &>/dev/null; then
+    info "Récupération des branches distantes..."
+    git fetch origin --quiet 2>/dev/null || warn "Impossible de contacter le serveur git"
 fi
 
-if $IS_NEW; then
-    while true; do
-        printf "  Choisissez un identifiant d'équipe (lettres, chiffres, _) : "
-        read -r TEAM_ID </dev/tty
+mapfile -t AVAILABLE_TEAMS < <(get_registered_teams)
 
-        if [[ ! "$TEAM_ID" =~ ^[a-zA-Z0-9][a-zA-Z0-9_]*$ ]]; then
-            error "Identifiant invalide : commencez par une lettre ou un chiffre, puis lettres/chiffres/_"
-            continue
-        fi
+if [ ${#AVAILABLE_TEAMS[@]} -eq 0 ]; then
+    error "Aucune équipe disponible dans config/teams.yaml."
+    error "Contactez l'organisateur pour que votre équipe soit créée."
+    exit 1
+fi
 
-        if team_in_yaml "$TEAM_ID" || [ -d "submissions/$TEAM_ID" ]; then
-            error "L'équipe '$TEAM_ID' existe déjà. Choisissez un autre nom."
-            continue
-        fi
+echo "  Équipes disponibles :"
+echo ""
+for i in "${!AVAILABLE_TEAMS[@]}"; do
+    printf "    ${CYAN}[%d]${RESET} %s\n" "$((i+1))" "${AVAILABLE_TEAMS[$i]}"
+done
+echo ""
+printf "  Votre équipe [1-%d] : " "${#AVAILABLE_TEAMS[@]}"
+read -r CHOICE </dev/tty
 
-        break
-    done
+if [[ "$CHOICE" =~ ^[0-9]+$ ]] && [ "$CHOICE" -ge 1 ] && [ "$CHOICE" -le "${#AVAILABLE_TEAMS[@]}" ]; then
+    TEAM_ID="${AVAILABLE_TEAMS[$((CHOICE-1))]}"
+else
+    error "Choix invalide. Relancez make register."
+    exit 1
 fi
 
 success "Équipe sélectionnée : $TEAM_ID"
 
-# ── 4. Scaffold + config + hook ───────────────────────────────────────────────
+# ── 4. Basculement sur la branche de l'équipe ─────────────────────────────────
 header "4/4 — Configuration"
 
-if $IS_NEW; then
-    # Ask for members
-    echo "  Entrez les noms des membres (un par ligne, ligne vide pour terminer) :"
-    echo ""
-    MEMBERS=()
-    while true; do
-        printf "  Membre %d : " "$((${#MEMBERS[@]} + 1))"
-        read -r MEMBER </dev/tty
-        if [ -z "$MEMBER" ]; then
-            [ ${#MEMBERS[@]} -eq 0 ] && { warn "Entrez au moins un membre."; continue; }
-            break
+if [ -d ".git" ]; then
+    CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+
+    if [ "$CURRENT_BRANCH" = "$TEAM_ID" ]; then
+        success "Déjà sur la branche $TEAM_ID"
+    else
+        info "Passage sur la branche $TEAM_ID..."
+        if git show-ref --verify --quiet "refs/heads/$TEAM_ID"; then
+            # Local branch already exists
+            git checkout "$TEAM_ID"
+        elif git show-ref --verify --quiet "refs/remotes/origin/$TEAM_ID"; then
+            # Track remote branch
+            git checkout -b "$TEAM_ID" "origin/$TEAM_ID"
+        else
+            error "La branche '$TEAM_ID' n'existe pas sur origin."
+            error "Contactez l'organisateur pour qu'il lance : make -f Makefile.admin scaffold TEAM=$TEAM_ID"
+            exit 1
         fi
-        MEMBERS+=("$MEMBER")
-    done
-    echo ""
+        success "Sur la branche $TEAM_ID"
+    fi
 
-    # Backup yaml before modifying
-    YAML_BACKUP=$(mktemp)
-    cp config/teams.yaml "$YAML_BACKUP"
-
-    # Copy template
-    info "Création de submissions/$TEAM_ID/ ..."
-    cp -r submissions/_template "submissions/$TEAM_ID"
-    CREATED_SUBMISSION="submissions/$TEAM_ID"
-    success "submissions/$TEAM_ID/ créé depuis le template"
-
-    # Append to config/teams.yaml
-    info "Ajout dans config/teams.yaml..."
-    {
-        printf "  - id: %s\n    members:\n" "$TEAM_ID"
-        for m in "${MEMBERS[@]}"; do
-            printf '      - "%s"\n' "$m"
-        done
-    } >> config/teams.yaml
-    success "Équipe ajoutée dans config/teams.yaml"
+    # Install git hooks
+    info "Installation des hooks git..."
+    cp scripts/pre-commit .git/hooks/pre-commit
+    chmod +x .git/hooks/pre-commit
+    cp scripts/pre-push .git/hooks/pre-push
+    chmod +x .git/hooks/pre-push
+    success "Hooks pre-commit et pre-push installés"
 else
-    success "Dossier submissions/$TEAM_ID/ existant chargé"
+    warn "Pas de dépôt git détecté — hooks non installés"
 fi
 
 # Save team name locally
 printf "%s" "$TEAM_ID" > .team
-success ".team mis à jour — make test / dev / watch cibleront '$TEAM_ID'"
-
-# Install git pre-commit hook
-if [ -d ".git" ]; then
-    info "Installation du hook pre-commit..."
-    cp scripts/pre-commit .git/hooks/pre-commit
-    chmod +x .git/hooks/pre-commit
-    success "Hook pre-commit installé"
-else
-    warn "Pas de dépôt git détecté — hook non installé"
-fi
+success ".team mis à jour — make test / make web cibleront '$TEAM_ID'"
 
 # ── Done ──────────────────────────────────────────────────────────────────────
 echo ""
@@ -212,8 +142,8 @@ echo "  └───────────────────────
 echo ""
 echo "  Prochaines étapes :"
 echo ""
-printf "    \033[36m%-38s\033[0m %s\n" "make test" "Lancer les tests publics"
-printf "    \033[36m%-38s\033[0m %s\n" "make test LEVEL=1" "Tester un palier spécifique"
-printf "    \033[36m%-38s\033[0m %s\n" "make web" "Voir votre progression sur le dashboard"
-printf "    \033[36m%-38s\033[0m %s\n" "make watch" "Relancer les tests automatiquement (5s)"
+printf "    ${CYAN}%-38s${RESET} %s\n" "make test" "Lancer les tests publics"
+printf "    ${CYAN}%-38s${RESET} %s\n" "make test LEVEL=1" "Tester un palier spécifique"
+printf "    ${CYAN}%-38s${RESET} %s\n" "make web" "Voir votre progression sur le dashboard"
+printf "    ${CYAN}%-38s${RESET} %s\n" "git push origin $TEAM_ID" "Pousser vos changements"
 echo ""
