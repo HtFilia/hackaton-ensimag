@@ -1,11 +1,8 @@
 from __future__ import annotations
-
 from typing import Iterable
-
 from src.common.models import MultiBook, Order, Action, Side, OrderType
 
 def process_orders(initial_book: MultiBook, orders: Iterable[Order]) -> MultiBook:
-
     for order in orders:
         book = initial_book.get_or_create(order.asset)
 
@@ -15,15 +12,20 @@ def process_orders(initial_book: MultiBook, orders: Iterable[Order]) -> MultiBoo
             continue
 
         elif order.action == Action.AMEND:
-            exist = False
+            original = None
             for o in book.bids.orders + book.asks.orders:
                 if o.id == order.id:
-                    exist = True
+                    original = o
                     break
-            if exist:
+            
+            if original:
+                if not hasattr(order, 'side') or order.side is None:
+                    order.side = original.side
+                if not hasattr(order, 'order_type') or order.order_type is None:
+                    order.order_type = original.order_type
+                
                 book.bids.orders = [o for o in book.bids.orders if o.id != order.id]
                 book.asks.orders = [o for o in book.asks.orders if o.id != order.id]
-                pass
             else:
                 continue
 
@@ -38,8 +40,9 @@ def process_orders(initial_book: MultiBook, orders: Iterable[Order]) -> MultiBoo
 
         while opposite_side.orders and order.quantity > 0:
             best_opp = opposite_side.orders[0]
-            
+
             is_market = (order.order_type == OrderType.MARKET)
+            
             price_match = (
                 (order.side == Side.BUY and order.price >= best_opp.price) or
                 (order.side == Side.SELL and order.price <= best_opp.price)
