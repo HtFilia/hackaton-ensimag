@@ -10,6 +10,7 @@ from src.common.models import MultiBook, Order, Side, OrderType
 
 class ResumeOrdre(Enum):
     LIMITE = "limit"
+    MARCHE = "market"
     ACHAT = "buy"
     VENTE = "sell"
 
@@ -85,6 +86,13 @@ class Moteur:
             for ordre in livre.asks.orders:
                 bisect.insort(carnet.demandes, self._creer_entree(ordre), key=_cle_demande)
 
+    def _prix_compatible(self, entree: EntreeCarnet, meilleur: EntreeCarnet) -> bool:
+        if entree.type_ordre == OrderType.MARKET:
+            return True
+        if entree.cote == Side.BUY:
+            return meilleur.prix <= entree.prix
+        return meilleur.prix >= entree.prix
+
     def _traiter_ordre(self, ordre: Order):
         carnet = self._obtenir_carnet(ordre.asset)
         entree = self._creer_entree(ordre)
@@ -92,9 +100,7 @@ class Moteur:
 
         while entree.quantite > 0 and opposee:
             meilleur = opposee[-1]
-            if entree.cote == Side.BUY and meilleur.prix > entree.prix:
-                break
-            if entree.cote == Side.SELL and meilleur.prix < entree.prix:
+            if not self._prix_compatible(entree, meilleur):
                 break
             qte = min(entree.quantite, meilleur.quantite)
             entree.quantite -= qte
@@ -102,7 +108,7 @@ class Moteur:
             if meilleur.quantite <= 0:
                 opposee.pop()
 
-        if entree.quantite > 0:
+        if entree.quantite > 0 and ordre.order_type != OrderType.MARKET:
             carnet.inserer(entree)
 
     def _construire_resultat(self) -> MultiBook:
