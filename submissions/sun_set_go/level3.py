@@ -83,16 +83,29 @@ def process_orders(initial_book: MultiBook, orders: Iterable[Order]) -> MultiBoo
         if (order.action == Action.NEW):
             add_new_order(book,order)
         else :
-            for i in range(len(book.bids.orders)):
-                if book.bids.orders[i].id == order.id:
-                    book.bids.orders.pop(i)
-                    break
-            for i in range(len(book.asks.orders)):
-                if book.asks.orders[i].id == order.id:
-                    book.asks.orders.pop(i)
-                    break
-            if (order.action == Action.AMEND):
-                add_new_order(book, order)
+            if (order.action == Action.AMEND) and order.price != 0 and order.quantity != 0:
+                    for i in range(len(book.bids.orders)):
+                        if book.bids.orders[i].id == order.id:
+                            cpy = book.bids.orders.pop(i)
+                            break
+                    for i in range(len(book.asks.orders)):
+                        if book.asks.orders[i].id == order.id:
+                            cpy = book.asks.orders.pop(i)
+                            break
+                    cpy.quantity = order.quantity
+                    cpy.price = order.price
+                    add_new_order(book, cpy)
+            else :
+                for i in range(len(book.bids.orders)):
+                    if book.bids.orders[i].id == order.id:
+                        book.bids.orders.pop(i)
+                        break
+                for i in range(len(book.asks.orders)):
+                    if book.asks.orders[i].id == order.id:
+                        book.asks.orders.pop(i)
+                        break
+            
+                
                 
                 
     return initial_book
