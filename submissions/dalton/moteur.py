@@ -17,6 +17,7 @@ class ResumeOrdre(Enum):
     IMMEDIAT_OU_ANNULE = "IOC"
     TOUT_OU_RIEN = "FOK"
     VALABLE_ANNULATION = "GTC"
+    ICEBERG = "iceberg"
     ACHAT = "buy"
     VENTE = "sell"
 
@@ -30,6 +31,7 @@ class EntreeCarnet:
     actif: str
     type_ordre: OrderType
     horodatage: int
+    quantite_visible: Optional[float] = None
 
 
 def _cle_offre(e: EntreeCarnet):
@@ -93,7 +95,8 @@ class Moteur:
     def _creer_entree(self, ordre: Order) -> EntreeCarnet:
         return EntreeCarnet(
             ordre.id, ordre.side, ordre.price, ordre.quantity,
-            ordre.asset, ordre.order_type, self._prochain_horodatage()
+            ordre.asset, ordre.order_type, self._prochain_horodatage(),
+            quantite_visible=ordre.visible_quantity
         )
 
     def _charger_etat_initial(self, multi_carnet: MultiBook):
@@ -158,10 +161,16 @@ class Moteur:
         ancien = carnet.supprimer(ordre.id)
         if ancien is None:
             return
+
+        quantite_visible = ancien.quantite_visible
+        if quantite_visible is not None and ordre.quantity < quantite_visible:
+            quantite_visible = ordre.quantity
+
         nouvel_ordre = Order(
             id=ancien.id_ordre, side=ancien.cote,
             price=ordre.price, quantity=ordre.quantity,
             asset=ancien.actif, order_type=ancien.type_ordre,
+            visible_quantity=quantite_visible,
         )
         self._executer_ordre(nouvel_ordre)
 
@@ -180,11 +189,13 @@ class Moteur:
             for e in reversed(carnet.offres):
                 livre.bids.add(Order(
                     id=e.id_ordre, side=e.cote, price=e.prix,
-                    quantity=e.quantite, asset=e.actif, order_type=e.type_ordre
+                    quantity=e.quantite, asset=e.actif, order_type=e.type_ordre,
+                    visible_quantity=e.quantite_visible,
                 ))
             for e in reversed(carnet.demandes):
                 livre.asks.add(Order(
                     id=e.id_ordre, side=e.cote, price=e.prix,
-                    quantity=e.quantite, asset=e.actif, order_type=e.type_ordre
+                    quantity=e.quantite, asset=e.actif, order_type=e.type_ordre,
+                    visible_quantity=e.quantite_visible,
                 ))
         return resultat
