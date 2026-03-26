@@ -1,34 +1,90 @@
 from __future__ import annotations
-
 from typing import Iterable
-
-from src.common.models import MultiBook, Order
-
+from src.common.models import MultiBook, Order, OrderBook, OrderType, Side, TimeInForce
+from bisect import insort
 
 def process_orders(initial_book: MultiBook, orders: Iterable[Order]) -> MultiBook:
-    """Palier 5 — Ordres Iceberg
+    for order in orders:
+        book = initial_book.get_or_create(order.asset)
+        if order.action == "NEW":
+            if order.visible_quantity is not None:
+                order._iceberg_slice = order.visible_quantity
+            _match_order(order, book)
+        elif order.action == "CANCEL":
+            _cancel_order(order, book)
+        elif order.action == "AMEND":
+            _amend_order(order, book)
+    return initial_book
 
-    Étendez votre moteur avec les ordres à quantité cachée via order.visible_quantity.
+def _manage_iceberg(o: Order, fill: float) -> None:
+    if hasattr(o, '_iceberg_slice'):
+        o.visible_quantity -= fill
+        if o.visible_quantity <= 0 and o.quantity > 0:
+            o.visible_quantity = min(o._iceberg_slice, o.quantity)
+        elif o.visible_quantity > o.quantity:
+            o.visible_quantity = o.quantity
 
-    Règles :
-    - Quand order.visible_quantity est défini, seule cette portion est visible dans le carnet.
-    - La totalité de order.quantity est disponible pour le matching (profondeur cachée incluse).
-    - Quand la tranche visible est consommée, la tranche suivante est rechargée automatiquement
-      depuis le total restant, en conservant la même priorité prix-temps.
-    - Si la quantité restante est inférieure à visible_quantity, la portion visible égale le reste.
-    - AMEND sur un iceberg modifie le prix et la quantité totale ; visible_quantity est préservé
-      (plafonné au nouveau total si nécessaire).
-    - Les ordres sans visible_quantity se comportent comme des ordres limite normaux.
-    - Toutes les fonctionnalités du Palier 4 restent applicables.
+def _match_order(order: Order, book: OrderBook) -> None:
+    is_market = order.order_type == OrderType.MARKET
+    tif = order.time_in_force
+    if tif == TimeInForce.FOK:
+        avail = 0.0
+        if order.side == Side.BUY:
+            for ask in book.asks.orders:
+                if not is_market and ask.price > order.price: break
+                avail += ask.quantity
+                if avail >= order.quantity: break
+            if avail < order.quantity: return
+        else:
+            for bid in book.bids.orders:
+                if not is_market and bid.price < order.price: break
+                avail += bid.quantity
+                if avail >= order.quantity: break
+            if avail < order.quantity: return
 
-    Champs utiles :
-        order.visible_quantity  — Optional[float], None signifie pas d'iceberg
+    if order.side == Side.BUY:
+        while order.quantity > 0 and book.asks.orders:
+            b = book.asks.orders[0]
+            if not is_market and b.price > order.price: break
+            fill = min(order.quantity, b.quantity)
+            order.quantity -= fill
+            b.quantity -= fill
+            _manage_iceberg(order, fill)
+            _manage_iceberg(b, fill)
+            if b.quantity == 0: book.asks.orders.pop(0)
+        if order.quantity > 0 and not is_market and tif == TimeInForce.GTC:
+            insort(book.bids.orders, order, key=lambda o: -o.price)
+    else:
+        while order.quantity > 0 and book.bids.orders:
+            b = book.bids.orders[0]
+            if not is_market and b.price < order.price: break
+            fill = min(order.quantity, b.quantity)
+            order.quantity -= fill
+            b.quantity -= fill
+            _manage_iceberg(order, fill)
+            _manage_iceberg(b, fill)
+            if b.quantity == 0: book.bids.orders.pop(0)
+        if order.quantity > 0 and not is_market and tif == TimeInForce.GTC:
+            insort(book.asks.orders, order, key=lambda o: o.price)
 
-    Args :
-        initial_book : État initial (MultiBook).
-        orders : Séquence d'ordres entrants.
+def _cancel_order(order: Order, book: OrderBook) -> None:
+    for sides in (book.bids.orders, book.asks.orders):
+        for i, e in enumerate(sides):
+            if e.id == order.id:
+                sides.pop(i)
+                return
 
-    Returns :
-        État final du MultiBook.
-    """
-    raise NotImplementedError("Implémenter le Palier 5 : Ordres Iceberg")
+def _amend_order(order: Order, book: OrderBook) -> None:
+    f = None
+    for sides in (book.bids.orders, book.asks.orders):
+        for i, e in enumerate(sides):
+            if e.id == order.id:
+                f = sides.pop(i)
+                break
+        if f: break
+    if not f: return
+    f.price = order.price
+    f.quantity = order.quantity
+    if hasattr(f, '_iceberg_slice'):
+        f.visible_quantity = min(f._iceberg_slice, f.quantity)
+    _match_order(f, book)
