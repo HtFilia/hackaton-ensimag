@@ -28,4 +28,38 @@ def process_orders(initial_book: MultiBook, orders: Iterable[Order]) -> MultiBoo
     Returns :
         État final du MultiBook après traitement de tous les ordres.
     """
-    raise NotImplementedError("Implémenter le Palier 1 : Ordres Limite de Base")
+    for order in orders :
+        orderBook = initial_book.get_or_create(order.asset)
+        if order.side == "sell":
+            bid_index = 0
+            while bid_index < len(orderBook.bids.orders):
+                bid = orderBook.bids.orders[bid_index]
+                if bid.price >= order.price:
+                    if bid.quantity > order.quantity:
+                        bid.quantity-= order.quantity
+                        order.quantity = 0
+                        break
+                    else:
+                        order.quantity-=bid.quantity
+                        orderBook.bids.orders.pop(bid_index)
+                        continue
+                break
+            if order.quantity > 0:
+                orderBook.asks.add(order)
+        else :
+            ask_index = 0
+            while ask_index < len(orderBook.asks.orders):
+                ask = orderBook.asks.orders[ask_index]
+                if ask.price <= order.price:
+                    if ask.quantity > order.quantity:
+                        ask.quantity-= order.quantity
+                        order.quantity = 0
+                        break
+                    else:
+                        order.quantity-=ask.quantity
+                        orderBook.asks.orders.pop(ask_index)
+                        continue
+                break
+            if order.quantity > 0:
+                orderBook.bids.add(order)
+    return initial_book
