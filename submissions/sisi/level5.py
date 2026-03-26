@@ -1,7 +1,21 @@
 from __future__ import annotations
 from typing import Iterable
 from src.common.models import MultiBook, Order, OrderBook, OrderType, Side, TimeInForce
-from bisect import insort
+
+def _insert_bid(orders: list, order: Order) -> None:
+    pos = 0
+    for i, o in enumerate(orders):
+        if o.price < order.price:
+            pos = i + 1
+    orders.insert(pos, order)
+
+def _insert_ask(orders: list, order: Order) -> None:
+    pos = 0
+    for i, o in enumerate(orders):
+        if o.price > order.price:
+            break
+        pos = i + 1
+    orders.insert(pos, order)
 
 def process_orders(initial_book: MultiBook, orders: Iterable[Order]) -> MultiBook:
     for order in orders:
@@ -53,7 +67,7 @@ def _match_order(order: Order, book: OrderBook) -> None:
             _manage_iceberg(b, fill)
             if b.quantity == 0: book.asks.orders.pop(0)
         if order.quantity > 0 and not is_market and tif == TimeInForce.GTC:
-            insort(book.bids.orders, order, key=lambda o: -o.price)
+            _insert_bid(book.bids.orders, order)
     else:
         while order.quantity > 0 and book.bids.orders:
             b = book.bids.orders[0]
@@ -65,7 +79,7 @@ def _match_order(order: Order, book: OrderBook) -> None:
             _manage_iceberg(b, fill)
             if b.quantity == 0: book.bids.orders.pop(0)
         if order.quantity > 0 and not is_market and tif == TimeInForce.GTC:
-            insort(book.asks.orders, order, key=lambda o: o.price)
+            _insert_ask(book.asks.orders, order)
 
 def _cancel_order(order: Order, book: OrderBook) -> None:
     for sides in (book.bids.orders, book.asks.orders):
@@ -85,6 +99,9 @@ def _amend_order(order: Order, book: OrderBook) -> None:
     if not f: return
     f.price = order.price
     f.quantity = order.quantity
-    if hasattr(f, '_iceberg_slice'):
+    if order.visible_quantity is not None:
+        f._iceberg_slice = order.visible_quantity
+        f.visible_quantity = min(f._iceberg_slice, f.quantity)
+    elif hasattr(f, '_iceberg_slice'):
         f.visible_quantity = min(f._iceberg_slice, f.quantity)
     _match_order(f, book)
