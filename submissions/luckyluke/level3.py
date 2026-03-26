@@ -1,69 +1,93 @@
 from __future__ import annotations
+
 from typing import Iterable
-from src.common.models import MultiBook, Order, Action, Side, OrderType
 
-def process_orders(initial_book: MultiBook, orders: Iterable[Order]) -> MultiBook:
-    for order in orders:
-        book = initial_book.get_or_create(order.asset)
+from src.common.models import Action, MultiBook, Order, OrderType, Side
 
-        if order.action == Action.CANCEL:
-            book.bids.orders = [o for o in book.bids.orders if o.id != order.id]
-            book.asks.orders = [o for o in book.asks.orders if o.id != order.id]
-            continue
 
-        elif order.action == Action.AMEND:
-            original = None
-            for o in book.bids.orders + book.asks.orders:
-                if o.id == order.id:
-                    original = o
-                    break
-            
-            if original:
-                if not hasattr(order, 'side') or order.side is None:
-                    order.side = original.side
-                if not hasattr(order, 'order_type') or order.order_type is None:
-                    order.order_type = original.order_type
-                
-                book.bids.orders = [o for o in book.bids.orders if o.id != order.id]
-                book.asks.orders = [o for o in book.asks.orders if o.id != order.id]
-            else:
-                continue
+def _sort_book(book) -> None:
+    book.bids.orders.sort(key=lambda order: order.price, reverse=True)
+    book.asks.orders.sort(key=lambda order: order.price)
 
-        if order.side == Side.BUY:
-            opposite_side = book.asks
-            own_side = book.bids
-            reverse_sort = True
-        else:
-            opposite_side = book.bids
-            own_side = book.asks
-            reverse_sort = False
 
-        while opposite_side.orders and order.quantity > 0:
-            best_opp = opposite_side.orders[0]
+def _process_new_order(book, order: Order) -> None:
+    if order.side == Side.BUY:
+        opposite_orders = book.asks.orders
+    else:
+        opposite_orders = book.bids.orders
 
-            is_market = (order.order_type == OrderType.MARKET)
-            
-            price_match = (
-                (order.side == Side.BUY and order.price >= best_opp.price) or
-                (order.side == Side.SELL and order.price <= best_opp.price)
-            )
-            
-            if is_market or price_match:
-                trade_qty = min(order.quantity, best_opp.quantity)
-                order.quantity -= trade_qty
-                best_opp.quantity -= trade_qty
-                
-                if best_opp.quantity <= 0:
-                    opposite_side.orders.pop(0)
-            else:
+    while order.quantity > 0 and opposite_orders:
+        best_order = opposite_orders[0]
+
+        if order.order_type != OrderType.MARKET:
+            if order.side == Side.BUY and best_order.price > order.price:
+                break
+            if order.side == Side.SELL and best_order.price < order.price:
                 break
 
-        if order.order_type == OrderType.LIMIT and order.quantity > 0:
-            own_side.orders.append(order)
-            own_side.orders.sort(key=lambda x: x.price, reverse=reverse_sort)
+        traded_quantity = min(order.quantity, best_order.quantity)
+        order.quantity -= traded_quantity
+        best_order.quantity -= traded_quantity
+
+        if best_order.quantity == 0:
+            opposite_orders.pop(0)
+
+    if order.quantity > 0 and order.order_type != OrderType.MARKET:
+        if order.side == Side.BUY:
+            book.bids.add(order)
+        else:
+            book.asks.add(order)
+
+        _sort_book(book)
+
+
+def _find_order(initial_book: MultiBook, order_id: str):
+    for book in initial_book.books.values():
+        for orders_list in (book.bids.orders, book.asks.orders):
+            for index, existing_order in enumerate(orders_list):
+                if existing_order.id == order_id:
+                    return orders_list, index, existing_order
+
+    return None, None, None
+
+
+def process_orders(initial_book: MultiBook, orders: Iterable[Order]) -> MultiBook:
+    for book in initial_book.books.values():
+        _sort_book(book)
+
+    for order in orders:
+        if order.action == Action.CANCEL:
+            orders_list, index, _ = _find_order(initial_book, order.id)
+            if orders_list is not None:
+                orders_list.pop(index)
+            continue
+
+        if order.action == Action.AMEND:
+            orders_list, index, existing_order = _find_order(initial_book, order.id)
+            if existing_order is None:
+                continue
+
+            orders_list.pop(index)
+
+            amended_order = Order(
+                id=existing_order.id,
+                side=existing_order.side,
+                price=order.price,
+                quantity=order.quantity,
+                asset=existing_order.asset,
+                order_type=existing_order.order_type,
+            )
+
+            book = initial_book.get_or_create(amended_order.asset)
+            _process_new_order(book, amended_order)
+            continue
+
+        book = initial_book.get_or_create(order.asset)
+        _process_new_order(book, order)
 
     return initial_book
-    """Palier 3 — Annulation et Modification
+
+"""Palier 3 — Annulation et Modification
 
     Étendez votre moteur avec la gestion du cycle de vie des ordres via order.action.
 
