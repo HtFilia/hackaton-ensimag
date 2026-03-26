@@ -94,20 +94,18 @@ def process_orders(initial_book: MultiBook, orders: Iterable[Order]) -> MultiBoo
                     if order.quantity > 0:
                         orderBook.bids.add(order)
         elif order.action =="CANCEL":
-            if order.side == "buy":
                 bid_index = 0
                 while bid_index < len(orderBook.bids.orders):
                     if orderBook.bids.orders[bid_index].id == order.id:
                         orderBook.bids.orders.pop(bid_index)
                         break
                     bid_index+=1
-            else:
                 ask_index = 0
                 while ask_index < len(orderBook.asks.orders):
                     if orderBook.asks.orders[ask_index].id == order.id:
                         orderBook.asks.orders.pop(ask_index)
                         break
-                    bid_index+=1
+                    ask_index+=1
         else:
             if order.side == "buy":
                 bid_index = 0
