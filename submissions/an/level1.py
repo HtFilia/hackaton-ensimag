@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Iterable
+from bisect import insort
 
 from src.common.models import MultiBook, Order
 
@@ -28,4 +29,40 @@ def process_orders(initial_book: MultiBook, orders: Iterable[Order]) -> MultiBoo
     Returns :
         État final du MultiBook après traitement de tous les ordres.
     """
-    raise NotImplementedError("Implémenter le Palier 1 : Ordres Limite de Base")
+    book = initial_book.get_or_create(Order.asset)
+    for order in orders : 
+        orders_match(order, book)
+    return initial_book
+    
+def orders_match(order : Order, book : OrderBook):
+    if order.side==Side.buy:
+        while order.quantity>0 and book.asks.order:
+            best_ask=book.asks.best
+            if best_ask.price>order.price:
+                break
+            quantity_gone=min(order.quantity, best_ask.price)
+            order.quantity-=quantity_gone
+            best_ask.quantity-=quantity_gone
+            if best_ask.quantity==0:
+                book.asks.pop(0)
+        if order.quantity>0:
+           insort(book.bids.order, order, key= lambda o : o.price, reverse = True)
+    else :
+        while order.quantity>0 and book.bids.order:
+            best_bid=book.bids.best
+            if best_bid.price<order.price:
+                break
+            quantity_gone=min(order.quantity, best_bid.price)
+            order.quantity-=quantity_gone
+            best_bid.quantity-=quantity_gone
+            if best_bid.quantity==0:
+                book.bids.pop(0)
+        if order.quantity>0:
+           insort(book.asks.order, order, key= lambda o : o.price)
+
+
+        
+    
+
+    
+        
