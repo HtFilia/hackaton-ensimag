@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Iterable
 
-from src.common.models import MultiBook, Order
+from src.common.models import MultiBook, Order, Side
 
 
 def process_orders(initial_book: MultiBook, orders: Iterable[Order]) -> MultiBook:
@@ -28,4 +28,41 @@ def process_orders(initial_book: MultiBook, orders: Iterable[Order]) -> MultiBoo
     Returns :
         État final du MultiBook après traitement de tous les ordres.
     """
-    raise NotImplementedError("Implémenter le Palier 1 : Ordres Limite de Base")
+
+    for order in orders:
+        """chaque order.asset routé vers son propre carnet"""
+        book = initial_book.get_or_create(order.asset)
+        if order.side == Side.BUY:
+            """ On regarde les asks pour les ordres d'achat"""
+            execute_order(order, book.asks.orders)
+            if order.quantity > 0:
+                book.bids.orders.append(order)
+                book.bids.orders.sort(key=lambda x: x.price, reverse=True)
+                
+        elif order.side == Side.SELL:
+            execute_order(order, book.bids.orders) 
+            if order.quantity>0:
+                book.asks.orders.append(order)
+                book.asks.orders.sort(key=lambda x: x.price )
+
+    return initial_book
+
+
+def execute_order(order, orders):
+    
+    while orders and order.quantity > 0:
+        current = orders[0] 
+        if order.side == Side.BUY:
+            possible= order.price >= current.price
+        else:
+            possible = order.price <= current.price
+            
+        if not possible:
+            break
+            
+        quantité = min(order.quantity, current.quantity)
+        order.quantity -= quantité
+        current.quantity -= quantité
+        
+        if current.quantity <= 0:
+            orders.pop(0)
