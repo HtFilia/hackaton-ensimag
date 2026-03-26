@@ -46,6 +46,9 @@ def process_orders(initial_book: MultiBook, orders: Iterable[Order]) -> MultiBoo
     initial_book = process_level_2(initial_book, new_orders)
 
     for order in orders: 
+        book = initial_book.get_or_create(order.asset)
+        remaining_qty = order.quantity
+
         if order.action == "CANCEL":
             i = 0
             while i < len(book.asks.orders):
@@ -65,7 +68,8 @@ def process_orders(initial_book: MultiBook, orders: Iterable[Order]) -> MultiBoo
                     break
                 else:
                     i += 1
-        elif order.action == "NEW":
+        elif order.action == "AMEND":
+
             if order.asset in book:
                 if order.side == Side.BUY:
                     book.asks.orders.sort(key=lambda x: (x.price, x.id))
@@ -115,8 +119,7 @@ def process_orders(initial_book: MultiBook, orders: Iterable[Order]) -> MultiBoo
                         book.asks.orders.append(order)
                         book.asks.orders.sort(key=lambda x: (x.price, x.id))
             
-        
-
+    
         return initial_book
             
     
