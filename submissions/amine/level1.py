@@ -5,11 +5,11 @@ from typing import Iterable
 from src.common.models import BookSide, MultiBook, Order, Side
 
 
-def sort_side(side: BookSide) -> None:
+def sort_side(side : BookSide) -> None:
     if side.side == Side.BUY:
-        side.orders.sort(key=lambda order: order.price, reverse=True)
+        side.orders.sort(key=lambda order : order.price, reverse=True)
     else:
-        side.orders.sort(key=lambda order: order.price)
+        side.orders.sort(key=lambda order : order.price)
 
 
 def initialize_book(book: MultiBook) -> None:
@@ -18,20 +18,20 @@ def initialize_book(book: MultiBook) -> None:
         sort_side(order_book.asks)
 
 
-def crosses(incoming: Order, resting: Order) -> bool:
+def crosses(incoming : Order, resting : Order) -> bool:
     if incoming.side == Side.BUY:
         return resting.price <= incoming.price
     return resting.price >= incoming.price
 
 
 def match_book(resting_side: BookSide, incoming: Order) -> None:
-    while incoming.quantity > 0 and resting_side.orders:
+    while incoming.quantity > 0 and resting_side.orders :
         best_resting = resting_side.orders[0]
-        if not crosses(incoming, best_resting):
+        if not crosses(incoming, best_resting) :
             break
 
         traded_quantity = min(incoming.quantity, best_resting.quantity)
-        incoming.quantity -= traded_quantity
+        incoming.quantity -=traded_quantity
         best_resting.quantity -= traded_quantity
 
         if best_resting.quantity <= 0:
@@ -39,10 +39,10 @@ def match_book(resting_side: BookSide, incoming: Order) -> None:
 
 
 def insert_order(side: BookSide, order: Order) -> None:
-    insert_at = len(side.orders)
+    insert_at =len(side.orders)
 
     for index, resting_order in enumerate(side.orders):
-        
+
         if side.side == Side.BUY and order.price > resting_order.price:
             insert_at = index
             break
