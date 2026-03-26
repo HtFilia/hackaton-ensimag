@@ -20,7 +20,7 @@ header()  { printf "\n  ${BOLD}%s${RESET}\n\n" "$*"; }
 
 # ── Helper: list registered teams from teams.yaml ─────────────────────────────
 get_registered_teams() {
-    python3 - <<'EOF'
+    python3.11 - <<'EOF'
 import yaml
 with open("config/teams.yaml") as f:
     cfg = yaml.safe_load(f)
@@ -38,12 +38,12 @@ echo ""
 
 # ── 1. Python check ───────────────────────────────────────────────────────────
 header "1/5 — Vérification de Python"
-if ! command -v python3 &>/dev/null; then
-    error "python3 est introuvable. Installez Python 3.11+ et relancez."
+if ! command -v python3.11 &>/dev/null; then
+    error "python3.11 est introuvable. Installez Python 3.11+ et relancez."
     exit 1
 fi
-PYTHON_VERSION=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
-PYTHON_OK=$(python3 -c "import sys; print(1 if sys.version_info >= (3, 11) else 0)")
+PYTHON_VERSION=$(python3.11 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
+PYTHON_OK=$(python3.11 -c "import sys; print(1 if sys.version_info >= (3, 11) else 0)")
 if [ "$PYTHON_OK" != "1" ]; then
     error "Python 3.11+ requis (détecté : $PYTHON_VERSION)."
     error "Mettez à jour Python et relancez make register."
@@ -55,7 +55,7 @@ success "Python $PYTHON_VERSION détecté"
 header "2/5 — Environnement Python"
 if [ ! -d "venv" ]; then
     info "Création du virtualenv..."
-    python3 -m venv venv
+    python3.11 -m venv venv
     success "venv/ créé"
 else
     success "venv/ déjà présent"
