@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, List, Iterable, Optional
 
-from src.common.models import MultiBook, Order, Side, OrderType, Action
+from src.common.models import MultiBook, Order, Side, OrderType, Action, TimeInForce
 
 
 class ResumeOrdre(Enum):
@@ -14,6 +14,9 @@ class ResumeOrdre(Enum):
     NOUVEAU = "NEW"
     ANNULATION = "CANCEL"
     MODIFICATION = "AMEND"
+    IMMEDIAT_OU_ANNULE = "IOC"
+    TOUT_OU_RIEN = "FOK"
+    VALABLE_ANNULATION = "GTC"
     ACHAT = "buy"
     VENTE = "sell"
 
@@ -108,6 +111,16 @@ class Moteur:
             return meilleur.prix <= entree.prix
         return meilleur.prix >= entree.prix
 
+    def _verifier_liquidite(self, entree: EntreeCarnet, cote_opposee: List[EntreeCarnet]) -> bool:
+        quantite_restante = entree.quantite
+        for ordre_carnet in reversed(cote_opposee):
+            if not self._prix_compatible(entree, ordre_carnet):
+                break
+            quantite_restante -= ordre_carnet.quantite
+            if quantite_restante <= 0:
+                return True
+        return False
+
     def _executer_matching(self, entree: EntreeCarnet, carnet: CarnetActif):
         opposee = carnet.demandes if entree.cote == Side.BUY else carnet.offres
         while entree.quantite > 0 and opposee:
@@ -124,9 +137,17 @@ class Moteur:
     def _executer_ordre(self, ordre: Order):
         carnet = self._obtenir_carnet(ordre.asset)
         entree = self._creer_entree(ordre)
+
+        if ordre.time_in_force == TimeInForce.FOK:
+            opposee = carnet.demandes if entree.cote == Side.BUY else carnet.offres
+            if not self._verifier_liquidite(entree, opposee):
+                return
+
         self._executer_matching(entree, carnet)
-        if entree.quantite > 0 and ordre.order_type != OrderType.MARKET:
-            carnet.inserer(entree)
+
+        if entree.quantite > 0:
+            if ordre.time_in_force == TimeInForce.GTC and ordre.order_type != OrderType.MARKET:
+                carnet.inserer(entree)
 
     def _annuler(self, ordre: Order):
         carnet = self._obtenir_carnet(ordre.asset)
