@@ -82,7 +82,7 @@ def process_orders(initial_book: MultiBook, orders: Iterable[Order]) -> MultiBoo
         
         if (order.action == Action.NEW):
             add_new_order(book,order)
-        elif (order.action == Action.CANCEL or order.action == Action.AMEND):
+        else :
             for i in range(len(book.bids.orders)):
                 if book.bids.orders[i].id == order.id:
                     book.bids.orders.pop(i)
